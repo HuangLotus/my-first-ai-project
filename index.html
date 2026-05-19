@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AI智能知识库问答系统</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      body {
+        background: #f6f8fa;
+        max-width: 900px;
+        margin: 30px auto;
+        padding: 0 20px;
+      }
+
+      h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #24292f;
+      }
+
+      .upload-box {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .chat-box {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        height: 500px;
+        padding: 20px;
+        overflow-y: auto;
+        margin-bottom: 15px;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        line-height: 1.5;
+      }
+
+      .user-msg {
+        background: #e8f0fe;
+        text-align: right;
+        margin-left: auto;
+        max-width: 80%;
+      }
+
+      .bot-msg {
+        background: #f1f3f4;
+        text-align: left;
+        max-width: 80%;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 10px;
+      }
+
+      #question {
+        flex: 1;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 15px;
+      }
+
+      button {
+        padding: 12px 18px;
+        background: #0969da;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 15px;
+      }
+
+      button:hover {
+        background: #085fc2;
+      }
+
+      .conf-high {
+        color: #0b8f33;
+        font-weight: bold;
+      }
+      .conf-middle {
+        color: #c77000;
+        font-weight: bold;
+      }
+      .conf-low {
+        color: #d03c38;
+        font-weight: bold;
+      }
+
+      .source-block {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #555;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>📚 AI智能知识库问答系统</h2>
+
+    <div class="upload-box">
+      <input type="file" id="fileInput" />
+      <button onclick="uploadFile()">上传文档</button>
+    </div>
+
+    <div class="chat-box" id="chatBox"></div>
+
+    <div class="input-group">
+      <input type="text" id="question" placeholder="输入你的问题..." />
+      <button onclick="sendQuestion()">发送</button>
+    </div>
+
+    <script>
+      // 发送问题
+      async function sendQuestion() {
+        const input = document.getElementById("question");
+        const question = input.value.trim();
+        if (!question) return;
+
+        addMessage(question, true);
+        input.value = "";
+
+        try {
+          const res = await fetch(
+            `http://127.0.0.1:8000/chat?question=${encodeURIComponent(question)}`,
+          );
+          const data = await res.json();
+
+          let confClass = "";
+          if (data.confidence >= 0.8) confClass = "conf-high";
+          else if (data.confidence >= 0.6) confClass = "conf-middle";
+          else confClass = "conf-low";
+
+          let answerHtml = data.answer;
+          answerHtml += `<br><span class="${confClass}">【置信度】${(data.confidence * 100).toFixed(1)}%</span>`;
+
+          if (data.source && data.source.length > 0) {
+            answerHtml += `<div class="source-block">【参考片段】`;
+            data.source.forEach((item, i) => {
+              answerHtml += `<br>${i + 1}. 匹配度 ${(item.score * 100).toFixed(0)}%：${item.content}`;
+            });
+            answerHtml += `</div>`;
+          }
+
+          addMessage(answerHtml, false);
+        } catch (e) {
+          addMessage("服务连接失败，请检查后端", false);
+        }
+      }
+
+      // 上传文件
+      async function uploadFile() {
+        const file = document.getElementById("fileInput").files[0];
+        if (!file) return alert("请选择文件");
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("http://127.0.0.1:8000/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        alert(data.status === "success" ? "上传成功！" : "上传失败");
+      }
+
+      // 添加消息到界面
+      function addMessage(text, isUser) {
+        const div = document.createElement("div");
+        div.className = isUser ? "message user-msg" : "message bot-msg";
+        div.innerHTML = text;
+        document.getElementById("chatBox").appendChild(div);
+        document.getElementById("chatBox").scrollTop =
+          document.getElementById("chatBox").scrollHeight;
+      }
+    </script>
+  </body>
+</html>
